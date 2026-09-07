@@ -13,7 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import SessionLocal
-from models import Client, ComplianceDate, MessageHistory, MessageStatus
+from models import Client, Category, ComplianceDate, MessageHistory, MessageStatus
 from whatsapp_service import send_gst_reminder
 
 logger = logging.getLogger("scheduler")
@@ -46,11 +46,12 @@ def run_compliance_reminder_job():
             )
 
             for compliance in due_items:
-                # Match active clients belonging to this compliance's category
+                # Match active clients belonging to this compliance's category (many-to-many or legacy single)
                 matching_clients = (
                     db.query(Client)
                     .filter(
-                        Client.category_id == compliance.category_id,
+                        (Client.categories.any(Category.id == compliance.category_id))
+                        | (Client.category_id == compliance.category_id),
                         Client.is_active == True,  # noqa: E712
                     )
                     .all()

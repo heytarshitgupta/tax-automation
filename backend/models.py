@@ -4,7 +4,7 @@ SQLAlchemy ORM models mirroring schema.sql
 """
 from sqlalchemy import (
     Column, Integer, String, Boolean, DECIMAL, Date, DateTime,
-    ForeignKey, Enum, func
+    ForeignKey, Enum, func, Table
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -19,6 +19,15 @@ class MessageStatus(str, enum.Enum):
     READ = "READ"
 
 
+# Association table for Client <-> Category (Many-to-Many)
+client_categories = Table(
+    "client_categories",
+    Base.metadata,
+    Column("client_id", Integer, ForeignKey("clients.id", ondelete="CASCADE"), primary_key=True),
+    Column("category_id", Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -27,7 +36,7 @@ class Category(Base):
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
-    clients = relationship("Client", back_populates="category")
+    clients = relationship("Client", secondary=client_categories, back_populates="categories")
     compliance_dates = relationship(
         "ComplianceDate", back_populates="category", cascade="all, delete-orphan"
     )
@@ -42,12 +51,14 @@ class Client(Base):
     mobile_number = Column(String(20), unique=True, nullable=False)
     gst_details = Column(String(20), nullable=True)
     pan_details = Column(String(15), nullable=True)
+    tan_details = Column(String(15), nullable=True)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    category = relationship("Category", back_populates="clients")
+    categories = relationship("Category", secondary=client_categories, back_populates="clients")
+    category = relationship("Category")
     invoices = relationship("Invoice", back_populates="client", cascade="all, delete-orphan")
     messages = relationship("MessageHistory", back_populates="client", cascade="all, delete-orphan")
 

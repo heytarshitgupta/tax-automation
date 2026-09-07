@@ -28,6 +28,7 @@ CREATE TABLE clients (
     mobile_number   VARCHAR(20)  NOT NULL UNIQUE COMMENT 'E.164 format e.g. 91XXXXXXXXXX (no + sign, as required by Meta API)',
     gst_details     VARCHAR(20)  DEFAULT NULL,
     pan_details     VARCHAR(15)  DEFAULT NULL,
+    tan_details     VARCHAR(15)  DEFAULT NULL,
     category_id     INT DEFAULT NULL,
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -35,6 +36,21 @@ CREATE TABLE clients (
     CONSTRAINT fk_clients_category
         FOREIGN KEY (category_id) REFERENCES categories(id)
         ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
+-- Table: client_categories (Many-to-Many junction table)
+-- ------------------------------------------------------------
+CREATE TABLE client_categories (
+    client_id   INT NOT NULL,
+    category_id INT NOT NULL,
+    PRIMARY KEY (client_id, category_id),
+    CONSTRAINT fk_client_categories_client
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_client_categories_category
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 -- ------------------------------------------------------------
@@ -100,13 +116,21 @@ INSERT INTO categories (name, description) VALUES
 ('TDS', 'Quarterly TDS return filing clients'),
 ('Quarterly GST (Composition)', 'Composition scheme GST filers');
 
-INSERT INTO clients (business_name, contact_name, mobile_number, gst_details, pan_details, category_id, is_active) VALUES
-('Sharma Traders',        'Rajesh Sharma',  '919876543210', '27AAAPS1234C1Z5', 'AAAPS1234C', 1, TRUE),
-('Verma Textiles',        'Anita Verma',    '919812345678', '27BBBPT5678D1Z2', 'BBBPT5678D', 1, TRUE),
-('Patiala Auto Parts',    'Gurpreet Singh',  '919898989898', '03CCCPA9876E1Z9', 'CCCPA9876E', 3, TRUE),
-('Kapoor & Associates',   'Neha Kapoor',    '919765432109', NULL,               'DDDPK4567F', 2, TRUE),
-('Singh Electronics',     'Manpreet Singh',  '919911223344', '03EEEPS3344G1Z1', 'EEEPS3344G', 1, FALSE),
-('Bansal Consultancy',    'Deepak Bansal',  '919922334455', NULL,               'FFFPB7890H', 3, TRUE);
+INSERT INTO clients (business_name, contact_name, mobile_number, gst_details, pan_details, tan_details, category_id, is_active) VALUES
+('Sharma Traders',        'Rajesh Sharma',  '919876543210', '27AAAPS1234C1Z5', 'AAAPS1234C', NULL, 1, TRUE),
+('Verma Textiles',        'Anita Verma',    '919812345678', '27BBBPT5678D1Z2', 'BBBPT5678D', NULL, 1, TRUE),
+('Patiala Auto Parts',    'Gurpreet Singh',  '919898989898', '03CCCPA9876E1Z9', 'CCCPA9876E', 'PTLA12345B', 3, TRUE),
+('Kapoor & Associates',   'Neha Kapoor',    '919765432109', NULL,               'DDDPK4567F', NULL, 2, TRUE),
+('Singh Electronics',     'Manpreet Singh',  '919911223344', '03EEEPS3344G1Z1', 'EEEPS3344G', NULL, 1, FALSE),
+('Bansal Consultancy',    'Deepak Bansal',  '919922334455', NULL,               'FFFPB7890H', 'BNSL54321C', 3, TRUE);
+
+INSERT INTO client_categories (client_id, category_id) VALUES
+(1, 1),
+(2, 1),
+(3, 3),
+(4, 2),
+(5, 1),
+(6, 3);
 
 INSERT INTO compliance_dates (category_id, description, due_date) VALUES
 (1, 'GSTR-3B Filing Due Date', DATE_ADD(CURDATE(), INTERVAL 7 DAY)),

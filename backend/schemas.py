@@ -3,7 +3,7 @@ schemas.py
 Pydantic models used for request validation and response serialization.
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
 from models import MessageStatus
@@ -38,12 +38,13 @@ class ClientBase(BaseModel):
     mobile_number: str = Field(..., description="E.164 without '+' e.g. 91XXXXXXXXXX")
     gst_details: Optional[str] = None
     pan_details: Optional[str] = None
-    category_id: Optional[int] = None
+    tan_details: Optional[str] = None
     is_active: bool = True
 
 
 class ClientCreate(ClientBase):
-    pass
+    category_ids: Optional[List[int]] = None
+    category_id: Optional[int] = None
 
 
 class ClientUpdate(BaseModel):
@@ -52,13 +53,17 @@ class ClientUpdate(BaseModel):
     mobile_number: Optional[str] = None
     gst_details: Optional[str] = None
     pan_details: Optional[str] = None
+    tan_details: Optional[str] = None
+    category_ids: Optional[List[int]] = None
     category_id: Optional[int] = None
     is_active: Optional[bool] = None
 
 
 class ClientOut(ClientBase):
     id: int
+    category_id: Optional[int] = None
     category: Optional[CategoryOut] = None
+    categories: List[CategoryOut] = []
 
     class Config:
         from_attributes = True

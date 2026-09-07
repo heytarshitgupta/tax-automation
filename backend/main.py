@@ -41,7 +41,12 @@ app = FastAPI(
 # ---------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # add prod domain here
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],  # dev ports
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -128,7 +133,44 @@ def create_client(payload: schemas.ClientCreate, db: Session = Depends(get_db)):
     existing = db.query(models.Client).filter(models.Client.mobile_number == payload.mobile_number).first()
     if existing:
         raise HTTPException(status_code=400, detail="A client with this mobile number already exists.")
-    client = models.Client(**payload.model_dump())
+
+    # Validate and fetch categories if provided
+    categories = []
+    if payload.category_ids:
+        unique_cat_ids = list(dict.fromkeys(payload.category_ids))
+        found_categories = db.query(models.Category).filter(models.Category.id.in_(unique_cat_ids)).all()
+        found_ids = {c.id for c in found_categories}
+        missing_ids = [cid for cid in unique_cat_ids if cid not in found_ids]
+        if missing_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Category ID(s) {missing_ids} do not exist.",
+            )
+        categories = found_categories
+    elif payload.category_id:
+        single_cat = db.query(models.Category).filter(models.Category.id == payload.category_id).first()
+        if not single_cat:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Category ID {payload.category_id} does not exist.",
+            )
+        categories = [single_cat]
+
+    client_data = payload.model_dump(exclude={"category_ids"})
+    # Normalize tax identifiers: trim and uppercase if provided
+    for key in ("gst_details", "pan_details", "tan_details"):
+        if client_data.get(key):
+            client_data[key] = client_data[key].strip().upper()
+        else:
+            client_data[key] = None
+
+    if categories:
+        client_data["category_id"] = categories[0].id
+
+    client = models.Client(**client_data)
+    if categories:
+        client.categories = categories
+
     db.add(client)
     db.commit()
     db.refresh(client)
@@ -139,20 +181,43 @@ def create_client(payload: schemas.ClientCreate, db: Session = Depends(get_db)):
 def list_clients(
     db: Session = Depends(get_db),
     category_id: int | None = None,
+    category_ids: str | None = None,
     is_active: bool | None = None,
     search: str | None = None,
 ):
     query = db.query(models.Client)
-    if category_id is not None:
-        query = query.filter(models.Client.category_id == category_id)
+
+    # Multi-category filter support (e.g. ?category_ids=1,3)
+    parsed_category_ids = []
+    if category_ids:
+        try:
+            parsed_category_ids = [int(cid.strip()) for cid in category_ids.split(",") if cid.strip().isdigit()]
+        except Exception:
+            parsed_category_ids = []
+
+    if parsed_category_ids:
+        query = query.filter(
+            (models.Client.categories.any(models.Category.id.in_(parsed_category_ids)))
+            | (models.Client.category_id.in_(parsed_category_ids))
+        )
+    elif category_id is not None:
+        query = query.filter(
+            (models.Client.categories.any(models.Category.id == category_id))
+            | (models.Client.category_id == category_id)
+        )
+
     if is_active is not None:
         query = query.filter(models.Client.is_active == is_active)
+
     if search:
         like = f"%{search}%"
         query = query.filter(
-            (models.Client.business_name.like(like)) | (models.Client.contact_name.like(like))
+            (models.Client.business_name.like(like))
+            | (models.Client.contact_name.like(like))
+            | (models.Client.mobile_number.like(like))
         )
     return query.order_by(models.Client.business_name).all()
+
 
 
 @app.get("/api/clients/{client_id}", response_model=schemas.ClientOut, tags=["Clients"])
@@ -168,11 +233,44 @@ def update_client(client_id: int, payload: schemas.ClientUpdate, db: Session = D
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found.")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+
+    dump = payload.model_dump(exclude_unset=True)
+
+    if "mobile_number" in dump and dump["mobile_number"] and dump["mobile_number"] != client.mobile_number:
+        existing = db.query(models.Client).filter(
+            models.Client.mobile_number == dump["mobile_number"],
+            models.Client.id != client_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="A client with this mobile number already exists.")
+
+    if "category_ids" in dump:
+        cat_ids = dump.pop("category_ids")
+        if cat_ids is not None:
+            unique_cat_ids = list(dict.fromkeys(cat_ids))
+            found_categories = db.query(models.Category).filter(models.Category.id.in_(unique_cat_ids)).all() if unique_cat_ids else []
+            found_ids = {c.id for c in found_categories}
+            missing_ids = [cid for cid in unique_cat_ids if cid not in found_ids]
+            if missing_ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Category ID(s) {missing_ids} do not exist.",
+                )
+            client.categories = found_categories
+            client.category_id = found_categories[0].id if found_categories else None
+
+    for field, value in dump.items():
+        if field in ("gst_details", "pan_details", "tan_details"):
+            if isinstance(value, str) and value.strip():
+                value = value.strip().upper()
+            else:
+                value = None
         setattr(client, field, value)
     db.commit()
     db.refresh(client)
     return client
+
+
 
 
 @app.delete("/api/clients/{client_id}", status_code=204, tags=["Clients"])
