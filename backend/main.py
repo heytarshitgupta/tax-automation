@@ -5,6 +5,7 @@ FastAPI backend entrypoint.
 
 Run with:  uvicorn main:app --reload --host 0.0.0.0 --port 8000
 """
+import os
 import logging
 from datetime import date, datetime, timedelta
 
@@ -42,14 +43,18 @@ app = FastAPI(
 # ---------------------------------------------------------------
 # CORS - allow the Vue dev server (and production frontend) to call this API
 # ---------------------------------------------------------------
+default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+env_origins = os.getenv("ALLOWED_ORIGINS", "")
+allowed_origins = list(dict.fromkeys(
+    default_origins + [o.strip() for o in env_origins.split(",") if o.strip()]
+))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],  # dev ports
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

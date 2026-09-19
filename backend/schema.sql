@@ -19,22 +19,40 @@ CREATE TABLE categories (
 ) ENGINE=InnoDB;
 
 -- ------------------------------------------------------------
+-- Table: staff
+-- Office staff and team members handling client compliance
+-- ------------------------------------------------------------
+CREATE TABLE staff (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    email         VARCHAR(100) UNIQUE DEFAULT NULL,
+    mobile_number VARCHAR(20) DEFAULT NULL,
+    role          VARCHAR(50) NOT NULL DEFAULT 'Staff',
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
 -- Table: clients
 -- ------------------------------------------------------------
 CREATE TABLE clients (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    business_name   VARCHAR(150) NOT NULL,
-    contact_name    VARCHAR(100) NOT NULL,
-    mobile_number   VARCHAR(20)  NOT NULL UNIQUE COMMENT 'E.164 format e.g. 91XXXXXXXXXX (no + sign, as required by Meta API)',
-    gst_details     VARCHAR(20)  DEFAULT NULL,
-    pan_details     VARCHAR(15)  DEFAULT NULL,
-    tan_details     VARCHAR(15)  DEFAULT NULL,
-    category_id     INT DEFAULT NULL,
-    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                INT AUTO_INCREMENT PRIMARY KEY,
+    business_name     VARCHAR(150) NOT NULL,
+    contact_name      VARCHAR(100) NOT NULL,
+    mobile_number     VARCHAR(20)  NOT NULL UNIQUE COMMENT 'E.164 format e.g. 91XXXXXXXXXX (no + sign, as required by Meta API)',
+    gst_details       VARCHAR(20)  DEFAULT NULL,
+    pan_details       VARCHAR(15)  DEFAULT NULL,
+    tan_details       VARCHAR(15)  DEFAULT NULL,
+    category_id       INT DEFAULT NULL,
+    assigned_staff_id INT DEFAULT NULL,
+    is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_clients_category
         FOREIGN KEY (category_id) REFERENCES categories(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_clients_assigned_staff
+        FOREIGN KEY (assigned_staff_id) REFERENCES staff(id)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -100,11 +118,42 @@ CREATE TABLE message_history (
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Helpful indexes for the scheduler's daily lookups
+-- ------------------------------------------------------------
+-- Table: client_tasks
+-- Compliance matters and tasks assigned to staff for clients
+-- ------------------------------------------------------------
+CREATE TABLE client_tasks (
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    client_id          INT NOT NULL,
+    staff_id           INT DEFAULT NULL,
+    matter             VARCHAR(200) NOT NULL,
+    assigned_staff     VARCHAR(100) DEFAULT NULL,
+    date_assigned      DATE DEFAULT NULL,
+    due_date           DATE DEFAULT NULL,
+    next_followup_date DATE DEFAULT NULL,
+    status             ENUM('PENDING','IN_PROGRESS','WAITING_DOCUMENTS','ON_HOLD','UNDER_REVIEW','COMPLETED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+    remarks            TEXT DEFAULT NULL,
+    documents          VARCHAR(500) DEFAULT NULL,
+    created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_tasks_client
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_tasks_staff
+        FOREIGN KEY (staff_id) REFERENCES staff(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- Helpful indexes for lookups
 CREATE INDEX idx_compliance_due_date ON compliance_dates(due_date);
 CREATE INDEX idx_clients_category ON clients(category_id);
+CREATE INDEX idx_clients_assigned_staff ON clients(assigned_staff_id);
 CREATE INDEX idx_history_sent_timestamp ON message_history(sent_timestamp);
 CREATE INDEX idx_history_client ON message_history(client_id);
+CREATE INDEX idx_tasks_client_id ON client_tasks(client_id);
+CREATE INDEX idx_tasks_staff_id ON client_tasks(staff_id);
+CREATE INDEX idx_tasks_due_date ON client_tasks(due_date);
+CREATE INDEX idx_tasks_status ON client_tasks(status);
 
 -- ============================================================
 -- DUMMY DATA
