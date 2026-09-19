@@ -69,4 +69,34 @@ export default {
       url: `/clients/${clientId}/send-document-request`,
       params: { doc_description: docDescription },
     }),
+
+  // ---------- Notifications (Custom / Bulk WhatsApp) ----------
+  sendNotifications: (payload) =>
+    request({
+      method: 'POST',
+      url: '/notifications/send',
+      data: payload,
+    }),
+
+  // ---------- Tasks / Compliance Matters ----------
+  getTasks: (params = {}) => request({ method: 'GET', url: '/tasks', params }),
+  getTaskMetrics: () => request({ method: 'GET', url: '/tasks/metrics' }),
+  getTask: (id) => request({ method: 'GET', url: `/tasks/${id}` }),
+  createTask: (payload) => request({ method: 'POST', url: '/tasks', data: payload }),
+  updateTask: (id, payload) => request({ method: 'PUT', url: `/tasks/${id}`, data: payload }),
+  updateTaskStatus: (id, taskStatus) =>
+    request({ method: 'PATCH', url: `/tasks/${id}/status`, data: { status: taskStatus } }),
+  deleteTask: (id) => request({ method: 'DELETE', url: `/tasks/${id}` }),
+  sendTaskReminder: (id, payload = {}) =>
+    request({ method: 'POST', url: `/tasks/${id}/send-reminder`, data: payload }),
+
+  // ---------- Staff ----------
+  getStaff: (params = {}) => request({ method: 'GET', url: '/staff', params }),
+  getStaffMetrics: () => request({ method: 'GET', url: '/staff/metrics' }),
+  getStaffMember: (id) => request({ method: 'GET', url: `/staff/${id}` }),
+  createStaff: (payload) => request({ method: 'POST', url: '/staff', data: payload }),
+  updateStaff: (id, payload) => request({ method: 'PUT', url: `/staff/${id}`, data: payload }),
+  toggleStaffStatus: (id) => request({ method: 'PATCH', url: `/staff/${id}/toggle-status` }),
+  deleteStaff: (id) => request({ method: 'DELETE', url: `/staff/${id}` }),
 }
+

@@ -52,6 +52,13 @@ function messageTypeLabel(type) {
   return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+function openWhatsApp(mobileNumber, messageText) {
+  let clean = String(mobileNumber || '').replace(/\D/g, '')
+  if (clean.length === 10) clean = '91' + clean
+  const url = `https://wa.me/${clean}?text=${encodeURIComponent(messageText || '')}`
+  window.open(url, '_blank')
+}
+
 onMounted(loadHistory)
 </script>
 
@@ -79,19 +86,43 @@ onMounted(loadHistory)
         <thead>
           <tr>
             <th>Client</th>
+            <th>Mobile</th>
             <th>Message Type</th>
             <th>Content</th>
             <th>Sent At</th>
             <th>Status</th>
+            <th style="text-align: right">Action</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="msg in messages" :key="msg.id">
-            <td>{{ msg.client?.business_name || `Client #${msg.client_id}` }}</td>
+            <td>
+              <strong>{{ msg.client?.business_name || `Client #${msg.client_id}` }}</strong>
+              <div v-if="msg.client?.contact_name" style="font-size: 11px; color: var(--text-muted)">
+                {{ msg.client.contact_name }}
+              </div>
+            </td>
+            <td>
+              <span v-if="msg.client?.mobile_number" style="font-family: monospace; font-size: 12px">
+                {{ msg.client.mobile_number }}
+              </span>
+              <span v-else style="color: var(--text-muted)">—</span>
+            </td>
             <td>{{ messageTypeLabel(msg.message_type) }}</td>
             <td style="max-width: 320px; white-space: normal">{{ msg.message_content || '—' }}</td>
             <td>{{ formatDate(msg.sent_timestamp) }}</td>
             <td><span :class="badgeClass(msg.status)">{{ msg.status }}</span></td>
+            <td style="text-align: right; white-space: nowrap">
+              <button
+                v-if="msg.client?.mobile_number"
+                class="btn btn-whatsapp"
+                style="padding: 5px 10px; font-size: 12px"
+                @click="openWhatsApp(msg.client.mobile_number, msg.message_content)"
+                title="Send / Open this message in WhatsApp directly"
+              >
+                📱 Send in WhatsApp
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>

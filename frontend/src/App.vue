@@ -39,6 +39,12 @@ onMounted(() => {
         <RouterLink to="/clients" class="nav-item" :class="{ active: route.name === 'clients' }">
           <span class="nav-icon">👥</span> Clients
         </RouterLink>
+        <RouterLink to="/staff" class="nav-item" :class="{ active: route.name === 'staff' }">
+          <span class="nav-icon">🧑‍💼</span> Staff
+        </RouterLink>
+        <RouterLink to="/tasks" class="nav-item" :class="{ active: route.name === 'tasks' }">
+          <span class="nav-icon">📋</span> Matters & Tasks
+        </RouterLink>
         <RouterLink
           to="/communication-log"
           class="nav-item"
